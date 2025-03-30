@@ -1,21 +1,16 @@
-📍Chiang Mai, Thailand
-
-#### YouTube Tutorial 
-See the video tutorial [here](https://www.youtube.com/watch?v=Qgg5oNDylG8).
+### YouTube Tutorial
+Based on this [video tutorial](https://www.youtube.com/watch?v=Qgg5oNDylG8).
 ![image](https://github.com/user-attachments/assets/926911a5-a673-46e4-9a0c-c3b4a0b26d61)
 
-###### 27 July 2024
+###### 02 March 2025
 
-# Arch Install [btrfs + encryption + zram + timeshift + qtile]
+# Arch Install [btrfs + encryption + timeshift + hyprland]
 
-Good morning, good afternoon or good evening, whereever you are reading this from. These installation instructions form the foundation of the Arch system that I use on my own machine. While it's important to always consult the official Arch wiki install guide [here](https://wiki.archlinux.org/title/Installation_guide), sometimes you may find your preferences deviating from the the official guide, and so my intention here is to provide a walkthrough on setting up your own system with the following:
-   - [btrfs](https://btrfs.readthedocs.io/en/latest/): A feature rich, copy-on-write filesystem for Linux.
-   - [encryption](https://gitlab.com/cryptsetup/cryptsetup/): LUKS disk encryption based on the dm-crypt kernel module.
-   - [zram](https://www.kernel.org/doc/html/v5.9/admin-guide/blockdev/zram.html): RAM compression for memory savings.
-   - [timeshift](https://github.com/linuxmint/timeshift): A system restore tool for Linux.
-   - [QTile](https://qtile.org/): A full-featured, hackable tiling window manager written and configured in Python.
-
-My intention is to keep this guide up-to-date, and any feedback is more than welcome. Let's get started.
+These installation instructions form the foundation of the Arch system that I use on my own machine. Always consult the official Arch wiki [install guide](https://wiki.archlinux.org/title/Installation_guide), sometimes you may find your preferences deviating from the the official guide, and so my intention here is to provide a walkthrough on setting up your own system with the following:
+- [btrfs](https://btrfs.readthedocs.io/en/latest/): A feature rich, copy-on-write filesystem for Linux.
+- [encryption](https://gitlab.com/cryptsetup/cryptsetup/): LUKS disk encryption based on the dm-crypt kernel module.
+- [timeshift](https://github.com/linuxmint/timeshift): A system restore tool for Linux.
+- [Hyprland](https://hyprland.org/): Dynamic tiling window manager.
 
 ## Step 1: Creating a bootable Arch media device
 
@@ -30,7 +25,7 @@ Here we will follow the Arch wiki:
 1. [optional] if you would like to ssh into your target machine you will need to:
 - Create a password for the ISO root user with the `passwd` command; and,
 - Ensure that `ssh` is running with `systemctl status sshd` (if it isn't start it with `systemctl start ssdhd`).
-2. Set the console keybooard layout (US by default):
+2. Set the console keyboard layout (US by default):
 - list available keymaps with `localectl list-keymaps`; and,
 - load the keymap with `loadkeys <your keymap here>`.
 3. [optional] set the font size with `setfont ter-132b`.
@@ -41,27 +36,27 @@ Here we will follow the Arch wiki:
 6. [optional] Obtain your IP Address with `ip addr show`, and now you're ready to ssh into your target machine.
 7. Set the timezone:
 - `timedatectl list-timezones`;
-- `timedatectl set-timezone Asia/Bangkok` (replace Asia/Bangkok with your preferred timezone); and,
+- `timedatectl set-timezone America/Toronto` (replace with your preferred timezone); and,
 - `timedatectl set-ntp true`.
 8. Partition your disk:
 - list your partitions with `lsblk`;
 - delete the existing partitions on the target disk [WARNING: your data will be lost]
 - create two partitions:
-> !NOTE: The official Arch Linux installation guide suggests implementing a swap partition and you are welcome to take this route. You could also create a swap subvolume within BTRFS, however, snapshots will be disabled where a volume has an active swapfile. In my case, I have opted instead of `zram` which works by compressing data in RAM, thereby stretching your RAM further. zram is only active when your RAM is at capacity.  
+> !NOTE: The official Arch Linux installation guide suggests implementing a swap partition and you are welcome to take this route. You could also create a swap subvolume within BTRFS, however, snapshots will be disabled where a volume has an active swapfile. In my case, I have opted instead of `zram` which works by compressing data in RAM, thereby stretching your RAM further. zram is only active when your RAM is at capacity.
 
-- **efi** = 300mb    
+- **efi** = 500mb
 - **main** = allocate all remaining space (or as otherwise fit for your specific case) noting that BTRFS doesn't require pre-defined partition sizes, but rather allocates dynamically through subvolumes which act in a similar fashion to partitions but don't require the physical division of the target disk.
-    
-9. format your main partition:  
-- setup encryption: `cryptsetup luksformat /dev/nvme0n1p2`  
+
+9. format your main partition:
+- setup encryption: `cryptsetup luksformat /dev/nvme0n1p2`
 - open your encrypted partition: `cryptsetup luksOpen /dev/nvme0n1p2 main`
-- format your partition: `mkfs.btrfs /dev/mapper/main`  
-- mount your main partition for installation: `mount /dev/mapper/main /mnt`  
-- now we need into the `/mnt` directory with `cd /mnt`  
-- create our subvolumes:  
-  **root**: `btrfs subvolume create @`  
+- format your partition: `mkfs.btrfs /dev/mapper/main`
+- mount your main partition for installation: `mount /dev/mapper/main /mnt`
+- now we need into the `/mnt` directory with `cd /mnt`
+- create our subvolumes:
+  **root**: `btrfs subvolume create @`
   **home**: `btrfs subvolume create @home`
-  > !NOTE: you are welcome to create your own subvolume names, but make sure you know what you are doing, because these subvolumes will also be referenced later when taking snapshots with timeshift.  
+  > !NOTE: you are welcome to create your own subvolume names, but make sure you know what you are doing, because these subvolumes will also be referenced later when taking snapshots with timeshift.
 - go back to the original (root) directory with `cd`
 - unmount our mnt partition: `umount /mnt`
 - create our boot and home mounting points `mkdir /mnt/{boot,home}`
@@ -80,8 +75,8 @@ You are now working from within in your new arch system - i.e. not from the ISO 
 
 We are now working within our Arch system on our device, but it's important to note that we can't yet reboot our machine. Let's continue with a few steps that we need to repeat again (such as setting our root password, timezones, keymaps and language) given the previous settings were in the context of our ISO.
 
-1. set your local time and locale on your system: 
-- `ln -sf /usr/share/zoneinfo/Asia/Bangkok /etc/localtime` (this is in your system, not on the iso)
+1. set your local time and locale on your system:
+- `ln -sf /usr/share/zoneinfo/America/Toronto /etc/localtime` (this is in your system, not on the iso)
 - `hwclock --systohc`
 - locale `nvim /etc/locale.gen` uncomment your locale, write and exit and then run `locale-gen`
 - `echo "LANG=en_US.UTF-8" >> /etc/locale.conf` for locale
@@ -89,10 +84,10 @@ We are now working within our Arch system on our device, but it's important to n
 2. change the hostname `echo "x1" >> /etc/hostname` (feel free to customise to your case, the x1 in my case is for the Lenovo x1 Carbon I am installing Arch on).
 3. set your root password: `passwd`
 4. set up a new user (replace `rad` with your preferred username):
-- create `useradd -m -g users -G wheel rad`; 
+- create `useradd -m -g users -G wheel rad`;
 - give your user a password with `passwd rad` (you will be prompted to enter a password); and,
 - add your user to the sudoers group: `echo "rad ALL=(ALL) ALL" >> /etc/sudoers.d/rad`.
-5. set mirrorlist `sudo reflector -c Thailand -a 12 --sort rate --save /etc/pacman.d/mirrorlist` (once again you can substitute Thailand with the location relevant to you)  
+5. set mirrorlist `sudo reflector -c Canada -a 12 --sort rate --save /etc/pacman.d/mirrorlist` (use the location relevant to you)
 
 Next, we will install all of the packages we need for our system. Refer to the bottom of this guide for a short summary on each package being installed. It's imperative to always know what you are doing, and what you are installing!
 
@@ -109,13 +104,13 @@ pacman -Syu base-devel linux linux-headers linux-firmware btrfs-progs grub efibo
 
 8. install your window manager of choice:
 ```bash
-pacman -S qtile xorg lightdm lightdm-gtk-greeter
+pacman -S hyprland
 ```
-> !NOTE: I am using QTile with X11, but you can just as easily install gnome, kde or whichever tiling window manager or graphical user environment that you would like at this stage. I am using X11 because at the time of writing I have experienced issues with using QTile as a Wayland compositor. I will revisit this from time to time and update this guide accordingly.
+> !NOTE: Any tiling window manager or graphical user environment can be installed at this stage.
 
 9. install other useful packages:
 ```bash
-pacman -S man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty firefox
+pacman -S man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty
 ```
 10. edit the mkinitcpio file for encrypt:
 - `vim /etc/mkinitcpio.conf` and search for HOOKS;
@@ -134,7 +129,6 @@ pacman -S man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewir
 - network manager with `systemctl enable NetworkManager`
 - bluetooth with `systemctl enable bluetooth`
 - ssh with `systemctl enable sshd`
-- lightdm login manager with `systemctl enable lightdm.service`
 - firewall with `systemctl enable firewalld`
 - reflector `systemctl enable reflector.timer`
 - `systemctl enable fstrim.timer`
@@ -145,41 +139,43 @@ Now for the moment of truth. Make sure you have followed these steps above caref
 
 ## Step 4: Tweaking our new Arch system
 
-When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the lightdm greeter. Enter the password for the user you created earlier. 
+When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the lightdm greeter. Enter the password for the user you created earlier.
 
 QTile out of the box doesn't look great - to say the least -, we still have some work to do. Keep it up!
 
-1. install [paru](https://github.com/Morganamilo/paru):
+1. install [yay](https://github.com/Jguer/yay):
 ```bash
 sudo pacman -S --needed base-devel
-git clone https://aur.archlinux.org/paru.git
-cd paru
+git clone https://aur.archlinux.org/yay.git
+cd yay
 makepkg -si
+yay -Y --gendb
+yay -Syu --devel
+yay -Y --devel --save
 ```
-3. install [zramd](https://github.com/maximumadmin/zramd):
+2. install [timeshift](https://github.com/linuxmint/timeshift):
 ```bash
-paru -S zramd
-sudo systemctl enable --now zramd.service
-```
-> !NOTE: you can refer to `lsblk` to see `zram` active (with 8GB by default). To edit your `zram` configuration go to `sudo vim /etc/default/zramd`.
-3. install [auto-cpufreq](https://github.com/AdnanHodzic/auto-cpufreq):
-```bash
-paru -S auto-cpufreq
-sudo systemctl enable --now auto-cpufreq.service
-```
-> !NOTE: you may also like to check out `tlp`, although for my use case `auto-cpufreq` works well enough.
-4. install [timeshift](https://github.com/linuxmint/timeshift):
-```bash
-paru -S timeshift timeshift-autosnap
+sudo pacman -S timeshift
 sudo timeshift --list-devices
-sudo timeshift --create --comments "[27JUL2024] start of time" --tags D
+sudo timeshift --create --comments "20250303 Base Install" --tags D
 sudo systemctl edit --full grub-btrfsd
 # NOTE:
 # rm : ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots
 # add: ExecStart=/usr/bin/grub-btrfsd --syslog -t
 sudo grub-mkconfig -o /boot/grub/grub.cfg
 ```
+3. Pacman hooks
+```bash
+[Trigger]
+Operation = Install
+Operation = Remove
+Type = Package
+Target = *
+[Action]
+When = PostTransaction
+Exec = /bin/sh -c '/usr/bin/pacman -Qqet > /home/username/pkglist.txt'
+```
 
-## Next: Ricing QTile
+## Hyprland configuration
 
-Stay tuned for a guide on fully customizing QTile. 
+...
