@@ -15,133 +15,215 @@ These installation instructions form the foundation of the Arch system that I us
 ## Step 1: Creating a bootable Arch media device
 
 Here we will follow the Arch wiki:
-1. Acquire an installation image [here](https://archlinux.org/download/).
-2. Verify the signature on the downloaded Arch ISO image (1.2 of the installation guide).
+1. Acquire an installation image [here](https://archlinux.org/download/)
+2. Verify the signature on the downloaded Arch ISO image (1.2 of the installation guide)
 3. Write your ISO to a USB (check out [this](https://www.scaler.com/topics/burn-linux-iso-to-usb/) guide)
-4. Insert the USB into the device you intend to install Arch linux on and boot into the USB.
+4. Insert the USB into the device you intend to install Arch linux on and boot into the USB
 
 ## Step 2: Setting Up Our System with the Arch ISO
 
-1. [optional] if you would like to ssh into your target machine you will need to:
-- Create a password for the ISO root user with the `passwd` command; and,
-- Ensure that `ssh` is running with `systemctl status sshd` (if it isn't start it with `systemctl start ssdhd`).
+1. **[optional]** To ssh into the target machine you will need to:
+- Create a password for the ISO root user with the **passwd** command
+- Ensure that **ssh** is running with **systemctl status sshd** (if it isn't start it with **systemctl start ssdhd**)
 2. Set the console keyboard layout (US by default):
-- list available keymaps with `localectl list-keymaps`; and,
-- load the keymap with `loadkeys <your keymap here>`.
-3. [optional] set the font size with `setfont ter-132b`.
-4. Verify the UEFI boot mode `cat /sys/firmware/efi/fw_platform_size`. This installation is written for a system with a 62-bit x64 UEFI. This isn't required, but if you are on a different boot mode, consult section 1.6 of the official guide.
+```bash
+# list available keymaps
+localectl list-keymaps
+# load the keymap
+loadkeys <your keymap here>
+```
+3. **[optional]** set the font size with **setfont ter-132b**
+4. Verify the UEFI boot mode **cat /sys/firmware/efi/fw_platform_size**. This installation is written for a system with a 62-bit x64 UEFI. This isn't required, but if you are on a different boot mode, consult section 1.6 of the official guide
 5. Connect to the internet:
-- I use the `iwctl` utility for this purpose; and,
-- Confirm that your connection is active with `ping -c 2 archlinux.org`.
-6. [optional] Obtain your IP Address with `ip addr show`, and now you're ready to ssh into your target machine.
-7. Set the timezone:
-- `timedatectl list-timezones`;
-- `timedatectl set-timezone America/Toronto` (replace with your preferred timezone); and,
-- `timedatectl set-ntp true`.
+- I use the **iwctl** utility for this purpose
+- Confirm that your connection is active with **ping -c 2 archlinux.org**
+6. **[optional]** Obtain your IP Address with **ip addr show**, now you're ready to ssh into your target machine
+7. Set the timezone (replace with your preferred timezone):
+```bash
+timedatectl list-timezones
+timedatectl set-timezone America/Toronto
+timedatectl set-ntp true
+```
 8. Partition your disk:
-- list your partitions with `lsblk`;
-- delete the existing partitions on the target disk [WARNING: your data will be lost]
+- list your partitions with **lsblk**
+- delete the existing partitions on the target disk **[WARNING: your data will be lost]**
+```bash
+gdisk /dev/sda
+?
+o
+Y
+```
 - create two partitions:
-> !NOTE: The official Arch Linux installation guide suggests implementing a swap partition and you are welcome to take this route. You could also create a swap subvolume within BTRFS, however, snapshots will be disabled where a volume has an active swapfile. In my case, I have opted instead of `zram` which works by compressing data in RAM, thereby stretching your RAM further. zram is only active when your RAM is at capacity.
-
+> **NOTE:** The official Arch Linux installation guide suggests implementing a swap partition and you are welcome to take this route. You could also create a swap subvolume within BTRFS, however, snapshots will be disabled where a volume has an active swapfile. In my case, I have opted instead of `zram` which works by compressing data in RAM, thereby stretching your RAM further. zram is only active when your RAM is at capacity.
 - **efi** = 500mb
+```bash
+n
+ENTER
+ENTER
++500M
+ef00
+```
 - **main** = allocate all remaining space (or as otherwise fit for your specific case) noting that BTRFS doesn't require pre-defined partition sizes, but rather allocates dynamically through subvolumes which act in a similar fashion to partitions but don't require the physical division of the target disk.
+```bash
+n
+ENTER
+ENTER
+ENTER
+ENTER
 
-9. format your main partition:
-- setup encryption: `cryptsetup luksformat /dev/nvme0n1p2`
-- open your encrypted partition: `cryptsetup luksOpen /dev/nvme0n1p2 main`
-- format your partition: `mkfs.btrfs /dev/mapper/main`
-- mount your main partition for installation: `mount /dev/mapper/main /mnt`
-- now we need into the `/mnt` directory with `cd /mnt`
+w
+Y
+```
+9. Format your main partition:
+```bash
+# setup encryption
+cryptsetup luksFormat /dev/nvme0n1p2
+# open your encrypted partition
+cryptsetup luksOpen /dev/nvme0n1p2 main
+# format your partition
+mkfs.btrfs /dev/mapper/main
+# mount your main partition for installation
+mount /dev/mapper/main /mnt
+# cd into the /mnt directory
+cd /mnt
+```
 - create our subvolumes:
-  **root**: `btrfs subvolume create @`
-  **home**: `btrfs subvolume create @home`
-  > !NOTE: you are welcome to create your own subvolume names, but make sure you know what you are doing, because these subvolumes will also be referenced later when taking snapshots with timeshift.
-- go back to the original (root) directory with `cd`
-- unmount our mnt partition: `umount /mnt`
-- create our boot and home mounting points `mkdir /mnt/{boot,home}`
-- mount our subvolumes: `mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@ /dev/mapper/main /mnt`
-- mount our subvolumes: `mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@home /dev/mapper/main /mnt/home`
-10. format your efi partition:
-- efi: `mkfs.fat -F32 /dev/nvme0n1p1`
-- mount our efi partition with `mount /dev/nvme0np1 /mnt/boot`
-11. install base packages: `pacstrap /mnt base`
-12. generate the file system table: `genfstab -U -p /mnt >> /mnt/etc/fstab` (you can check this with `cat /mnt/etc/fstab`)
-13. change root into the new system: `arch-chroot /mnt`
+```bash
+# root
+btrfs subvolume create @
+# home
+btrfs subvolume create @home
+```
+  > **NOTE:** you can create your own subvolume names, but make sure you know what you are doing, because these subvolumes will also be referenced later when taking snapshots with timeshift.
+  ```bash
+  # go back to the original (root) directory
+  cd
+  # unmount our mnt partition
+  umount /mnt
+  # mount root subvolume
+  mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@ /dev/mapper/main /mnt
+  # create home mounting point and mount home subvolume
+  mkdir /mnt/home
+  mount -o noatime,ssd,compress=zstd,space_cache=v2,discard=async,subvol=@home /dev/mapper/main /mnt/home
+  ```
 
-You are now working from within in your new arch system - i.e. not from the ISO - and you will now see that your prompt start with `#`. Great work so far!
+10. format your efi partition:
+  ```bash
+  mkfs.fat -F32 /dev/nvme0n1p1
+  ```
+- create boot mounting point and mount efi partition:
+  ```bash
+  mkdir /mnt/boot
+  mount /dev/nvme0np1 /mnt/boot
+  ```
+11. Configure reflector
+  ```bash
+  reflector -c Canada -a 12 --sort rate --save /etc/pacman.d/mirrorlist
+  ```
+12. Install base packages:
+  ```bash
+  pacstrap /mnt base linux linux-headers linux-firmware
+  ```
+13. generate the file system table:
+  ```bash
+  genfstab -U -p /mnt >> /mnt/etc/fstab
+  cat /mnt/etc/fstab
+  ```
+14. change root into the new system:
+  ```bash
+  arch-chroot /mnt
+  ```
+
+You are now working from within in your new arch system - i.e. not from the ISO - and you will now see that your prompt start with **"#". Great work so far!**
 
 ## Step 3: Working Within Our New System
 
 We are now working within our Arch system on our device, but it's important to note that we can't yet reboot our machine. Let's continue with a few steps that we need to repeat again (such as setting our root password, timezones, keymaps and language) given the previous settings were in the context of our ISO.
 
 1. set your local time and locale on your system:
-- `ln -sf /usr/share/zoneinfo/America/Toronto /etc/localtime` (this is in your system, not on the iso)
-- `hwclock --systohc`
-- locale `nvim /etc/locale.gen` uncomment your locale, write and exit and then run `locale-gen`
-- `echo "LANG=en_US.UTF-8" >> /etc/locale.conf` for locale
-- `echo "KEYMAP=en..." >> /etc/vconsole.conf` for keyboard
-2. change the hostname `echo "x1" >> /etc/hostname` (feel free to customise to your case, the x1 in my case is for the Lenovo x1 Carbon I am installing Arch on).
-3. set your root password: `passwd`
-4. set up a new user (replace `rad` with your preferred username):
-- create `useradd -m -g users -G wheel rad`;
-- give your user a password with `passwd rad` (you will be prompted to enter a password); and,
-- add your user to the sudoers group: `echo "rad ALL=(ALL) ALL" >> /etc/sudoers.d/rad`.
-5. set mirrorlist `sudo reflector -c Canada -a 12 --sort rate --save /etc/pacman.d/mirrorlist` (use the location relevant to you)
+  ```bash
+  ln -sf /usr/share/zoneinfo/America/Toronto /etc/localtime
+  hwclock --systohc
+  pacman -S vim
+  ```
+- Execute **vim /etc/locale.gen** and uncomment your locale, example: **en_CA.UTF-8 UTF-8** write and exit and then run:
+  ```bash
+  locale-gen
+  # for locale
+  echo "LANG=en_CA.UTF-8" >> /etc/locale.conf
+  # for keyboard
+  echo "KEYMAP=en..." >> /etc/vconsole.conf
+  ```
+2. change the hostname **echo "arch-vm" >> /etc/hostname**
+3. set your root password: **passwd**
+4. set up a new user (replace **ice** with your preferred username):
+  ```bash
+  useradd -m -g users -G wheel ice
+  # give your user a password with
+  passwd ice
+  # add your user to the sudoers group
+  pacman -S sudo
+  echo "ice ALL=(ALL) ALL" >> /etc/sudoers.d/ice
+  ```
 
 Next, we will install all of the packages we need for our system. Refer to the bottom of this guide for a short summary on each package being installed. It's imperative to always know what you are doing, and what you are installing!
 
-> !NOTE: you could of course install all of the following packages together, but I have broken them up so they are easier to reason about.
-
 6. install the main packages that our system will use:
 ```bash
-pacman -Syu base-devel linux linux-headers linux-firmware btrfs-progs grub efibootmgr mtools networkmanager network-manager-applet openssh sudo vim git iptables-nft ipset firewalld reflector acpid grub-btrfs
+pacman -Syu base-devel btrfs-progs grub efibootmgr mtools networkmanager network-manager-applet openssh git iptables-nft ipset firewalld reflector acpid grub-btrfs
 ```
 
 7. install the following based on the manufacturer of your CPU:
-  - **intel:** `pacman -S intel-ucode`
-  - **amd**: `pacman -S amd-code`
+  - **intel:**
+    ```bash
+    pacman -S intel-ucode
+    ```
+  - **amd:**
+    ```bash
+    pacman -S amd-ucode
+    ```
 
 8. install your window manager of choice:
 ```bash
 pacman -S hyprland
 ```
-> !NOTE: Any tiling window manager or graphical user environment can be installed at this stage.
+> **NOTE:** Any tiling window manager or graphical user environment can be installed at this stage.
 
 9. install other useful packages:
 ```bash
-pacman -S man-db man-pages texinfo bluez bluez-utils pipewire alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty
+pacman -S man-db man-pages texinfo bluez bluez-utils alsa-utils pipewire pipewire-pulse pipewire-jack sof-firmware ttf-firacode-nerd alacritty
 ```
 10. edit the mkinitcpio file for encrypt:
-- `vim /etc/mkinitcpio.conf` and search for HOOKS;
-- add encrypt (before filesystems hook);
-- add `atkbd` to the MODULES (enables external keyboard at device decryption prompt);
-- add `btrfs` to the MODULES; and,
-- recreate the `mkinitcpio -p linux`
+- **vim /etc/mkinitcpio.conf**
+  - add `btrfs` to the MODULES: **MODULES=(btrfs)**
+  - add encrypt to HOOKS (before filesystems): **encrypt filesystems fsck)**
+- recreate the mkinitcpio.conf with **mkinitcpio -p linux**
 11. setup grub for the bootloader so that the system can boot linux:
-- `grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB`
-- `grub-mkconfig -o /boot/grub/grub.cfg`
-- run blkid and obtain the UUID for the main partitin: `blkid`
-- edit the grub config `nvim /etc/default/grub`
-- `GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID=d33844ad-af1b-45c7-9a5c-cf21138744b4:main root=/dev/mapper/main`
-- make the grub config with `grub-mkconfig -o /boot/grub/grub.cfg`
+```bash
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-mkconfig -o /boot/grub/grub.cfg
+```
+- run **blkid** and obtain the UUID for the main partition
+- edit the grub config **vim /etc/default/grub**
+- **GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet cryptdevice=UUID=d33844ad-af1b-45c7-9a5c-cf21138744b4:main root=/dev/mapper/main**
+- make the grub config with **grub-mkconfig -o /boot/grub/grub.cfg**
 12. enable services:
-- network manager with `systemctl enable NetworkManager`
-- bluetooth with `systemctl enable bluetooth`
-- ssh with `systemctl enable sshd`
-- firewall with `systemctl enable firewalld`
-- reflector `systemctl enable reflector.timer`
-- `systemctl enable fstrim.timer`
-- `systemctl enable acpid`
-- `systemctl enable btrfsd`
+```bash
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable sshd
+systemctl enable firewalld
+systemctl enable reflector.timer
+systemctl enable fstrim.timer
+systemctl enable acpid
+exit
+```
 
-Now for the moment of truth. Make sure you have followed these steps above carefully, then reboot your system with the `reboot` command.
+Now for the moment of truth. Make sure you have followed these steps above carefully, then reboot your system with the **reboot** command.
 
 ## Step 4: Tweaking our new Arch system
 
-When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the lightdm greeter. Enter the password for the user you created earlier.
-
-QTile out of the box doesn't look great - to say the least -, we still have some work to do. Keep it up!
+When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the login scree. Enter the password for the user you created earlier.
 
 1. install [yay](https://github.com/Jguer/yay):
 ```bash
