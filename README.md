@@ -154,7 +154,10 @@ We are now working within our Arch system on our device, but it's important to n
   # for keyboard
   echo "KEYMAP=en..." >> /etc/vconsole.conf
   ```
-2. change the hostname **echo "arch-vm" >> /etc/hostname**
+2. change the hostname
+  ```bash
+  echo "arch-vm" >> /etc/hostname
+  ```
 3. set your root password: **passwd**
 4. set up a new user (replace **ice** with your preferred username):
   ```bash
@@ -223,7 +226,7 @@ Now for the moment of truth. Make sure you have followed these steps above caref
 
 ## Step 4: Tweaking our new Arch system
 
-When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the login scree. Enter the password for the user you created earlier.
+When you boot up you will be presented with the grub bootloader menu, and then, once you have selected to boot into arch linux (or the timer has timed out and selected your default option) you will be prompted to enter your encryption password. Upon successful decryption, you will be presented with the login screen. Enter the password for the user you created earlier.
 
 1. install [yay](https://github.com/Jguer/yay):
 ```bash
