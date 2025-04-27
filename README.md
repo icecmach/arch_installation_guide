@@ -219,6 +219,7 @@ systemctl enable firewalld
 systemctl enable reflector.timer
 systemctl enable fstrim.timer
 systemctl enable acpid
+systemctl enable systemd-timesyncd.service
 exit
 ```
 
