@@ -318,6 +318,22 @@ When = PostTransaction
 Exec = /bin/sh -c '/usr/bin/pacman -Qqet > /home/username/pkglist.txt'
 ```
 
+4. Sensors for hardware monitoring, temperatures and fan speed
+
+Install [lm_sensors](https://wiki.archlinux.org/title/Lm_sensors)
+
+```bash
+sudo pacman -S lm_sensors
+# Asrock B650M Pro RS / B850M Pro RS / X870 Pro RS
+sudo echo "options nct6775 force_id=0xd801" > /etc/modprobe.d/nct6775.conf
+sudo modprobe nct6775
+sudo sensors-detect --auto
+# Check output of sensors
+sensors
+# Load nct6775.ko at boot
+sudo echo "nct6775" > /etc/modules-load.d/nct6775.conf
+```
+
 ## Hyprland configuration
 
 ...
