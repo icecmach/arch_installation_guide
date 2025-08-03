@@ -139,7 +139,7 @@ mkfs.fat -F32 /dev/nvme0n1p1
 - create boot mounting point and mount efi partition:
   ```bash
   mkdir /mnt/boot
-  mount /dev/nvme0np1 /mnt/boot
+  mount /dev/nvme0n1p1 /mnt/boot
   ```
 
 11. Configure reflector
@@ -315,7 +315,7 @@ Type = Package
 Target = *
 [Action]
 When = PostTransaction
-Exec = /bin/sh -c '/usr/bin/pacman -Qqet > /home/username/pkglist.txt'
+Exec = /bin/sh -c "/usr/bin/pacman -Qqet > /home/username/pkglist.txt"
 ```
 
 4. Sensors for hardware monitoring, temperatures and fan speed
